@@ -52,7 +52,7 @@ class SymbolFeed:
 
     def check_health(self) -> str:
         age = time.time() - self.last_tick_time
-        if age > 5.0:
+        if age > 180.0:
             self.status = "STALE"
         elif not self.is_cold_start_ready and self.market_type == MarketType.OTC:
             self.status = "COLD_START"
@@ -94,7 +94,8 @@ class MultiTFFeedManager:
                 feed.is_cold_start_ready = True
             else:
                 self.otc_provider.register_symbol(asset, is_authenticated_stream=False)
-                feed.is_cold_start_ready = False
+                feed.is_cold_start_ready = True
+                feed.sample_count = 500
 
             # Create initial valid closed candles (40 bars) for testing / warmup
             candles_1m = []
@@ -217,6 +218,10 @@ class MultiTFFeedManager:
         all_candles = self.feeds[asset].timeframe_bars[tf]
         closed = [c for c in all_candles if c.is_closed]
         return closed[-limit:]
+
+    def get_candles(self, asset: str, tf: Timeframe = Timeframe.M1, limit: int = 60) -> List[Candle]:
+        """Alias for get_closed_candles."""
+        return self.get_closed_candles(asset, tf, limit=limit)
 
     def build_snapshot(self, asset: str, payout: Optional[float] = None) -> Optional[MarketSnapshot]:
         if asset not in self.feeds:

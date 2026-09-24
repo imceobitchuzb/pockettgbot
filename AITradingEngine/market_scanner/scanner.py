@@ -61,7 +61,7 @@ class MarketScanner:
                 continue
 
             # Update regime detection
-            candles = self.feed_manager.get_candles(symbol, snapshot.primary_timeframe)
+            candles = snapshot.candles or self.feed_manager.get_candles(symbol, snapshot.primary_timeframe)
             regime, details = self.regime_detector.detect(candles)
 
             # Recalculate snapshot with detected regime

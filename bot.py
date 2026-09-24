@@ -452,12 +452,14 @@ async def start_bot():
     bot = Bot(token=config.BOT_TOKEN)
     print("[BOT] Telegram bot started successfully and listening for messages (@imtraderbitchbot)...")
 
-    # Start quant scanner in background
+    # Start authentic real market data sync & quant scanner in background
+    await quant_engine.feed_manager.real_provider.start_live_sync()
     await quant_engine.scanner.start()
     try:
         await dp.start_polling(bot)
     finally:
         await quant_engine.scanner.stop()
+        await quant_engine.feed_manager.real_provider.stop_live_sync()
 
 
 if __name__ == "__main__":

@@ -33,17 +33,17 @@ PAIRS = {
         {"id": "NZD_USD_OTC", "name": "NZD/USD OTC", "payout": 88, "category": "Currencies OTC", "precision": 5, "base_price": 0.61240},
         {"id": "EUR_CHF_OTC", "name": "EUR/CHF OTC", "payout": 89, "category": "Currencies OTC", "precision": 5, "base_price": 0.96350},
         {"id": "GBP_JPY_OTC", "name": "GBP/JPY OTC", "payout": 92, "category": "Currencies OTC", "precision": 3, "base_price": 200.740},
-        {"id": "BTC_USD_OTC", "name": "BTC/USD OTC", "payout": 85, "category": "Crypto OTC", "precision": 2, "base_price": 64500.00},
+        {"id": "BTC_USD_OTC", "name": "BTC/USD OTC", "payout": 85, "category": "Crypto OTC", "precision": 2, "base_price": 84600.00},
     ],
     "regular": [
-        {"id": "EUR_USD", "name": "EUR/USD", "payout": 84, "category": "Currencies", "precision": 5, "base_price": 1.08512},
-        {"id": "GBP_USD", "name": "GBP/USD", "payout": 83, "category": "Currencies", "precision": 5, "base_price": 1.27450},
-        {"id": "USD_JPY", "name": "USD/JPY", "payout": 82, "category": "Currencies", "precision": 3, "base_price": 157.810},
-        {"id": "AUD_USD", "name": "AUD/USD", "payout": 81, "category": "Currencies", "precision": 5, "base_price": 0.66720},
-        {"id": "USD_CAD", "name": "USD/CAD", "payout": 80, "category": "Currencies", "precision": 5, "base_price": 1.36710},
-        {"id": "BTC_USDT", "name": "BTC/USDT", "payout": 85, "category": "Crypto", "precision": 2, "base_price": 64800.00},
-        {"id": "ETH_USDT", "name": "ETH/USDT", "payout": 84, "category": "Crypto", "precision": 2, "base_price": 3480.00},
-        {"id": "GOLD", "name": "XAU/USD (Gold)", "payout": 86, "category": "Commodities", "precision": 2, "base_price": 2345.50},
+        {"id": "EUR_USD", "name": "EUR/USD", "payout": 84, "category": "Currencies", "precision": 5, "base_price": 1.13980},
+        {"id": "GBP_USD", "name": "GBP/USD", "payout": 83, "category": "Currencies", "precision": 5, "base_price": 1.33950},
+        {"id": "USD_JPY", "name": "USD/JPY", "payout": 82, "category": "Currencies", "precision": 3, "base_price": 158.120},
+        {"id": "AUD_USD", "name": "AUD/USD", "payout": 81, "category": "Currencies", "precision": 5, "base_price": 0.70450},
+        {"id": "USD_CAD", "name": "USD/CAD", "payout": 80, "category": "Currencies", "precision": 5, "base_price": 1.40950},
+        {"id": "BTC_USDT", "name": "BTC/USDT", "payout": 85, "category": "Crypto", "precision": 2, "base_price": 84600.00},
+        {"id": "ETH_USDT", "name": "ETH/USDT", "payout": 84, "category": "Crypto", "precision": 2, "base_price": 2695.00},
+        {"id": "GOLD", "name": "XAU/USD (Gold)", "payout": 86, "category": "Commodities", "precision": 2, "base_price": 4268.00},
     ]
 }
 

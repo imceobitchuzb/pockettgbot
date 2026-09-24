@@ -70,9 +70,10 @@ async def engine_monitor_loop():
 
 @app.on_event("startup")
 async def startup_event():
-    # Start live broker quote adapter
+    # Start live broker quote adapter & authentic real market data sync
     from AITradingEngine.market_data.pocket_option_adapter import pocket_option_adapter
     await pocket_option_adapter.start()
+    await quant_engine.feed_manager.real_provider.start_live_sync()
     asyncio.create_task(engine_monitor_loop())
 
 

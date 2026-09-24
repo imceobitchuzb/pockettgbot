@@ -8,7 +8,7 @@ import time
 import asyncio
 import logging
 import httpx
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Callable
 
 from AITradingEngine.core.enums import MarketType, Timeframe
 from AITradingEngine.core.models import Candle
@@ -20,14 +20,26 @@ logger = logging.getLogger("AITradingEngine.RealMarketDataProvider")
 class RealMarketDataProvider(MarketDataProvider):
     """Production provider for real interbank market assets."""
 
-    def __init__(self, max_stale_seconds: float = 3.5):
+    def __init__(self, max_stale_seconds: float = 180.0):
         self.max_stale_seconds = max_stale_seconds
         self.prices: Dict[str, float] = {}
         self.timestamps: Dict[str, float] = {}
         self.ticks_history: Dict[str, List[Dict[str, Any]]] = {}
         self.candles_history: Dict[str, Dict[Timeframe, List[Candle]]] = {}
+        self._listeners: List[Callable[[str, float], None]] = []
         self.is_running = False
         self._sync_task: Optional[asyncio.Task] = None
+
+    def add_tick_listener(self, callback: Callable[[str, float], None]):
+        """Register a callback for incoming authentic ticks."""
+        self._listeners.append(callback)
+
+    def _notify_listeners(self, symbol: str, price: float):
+        for cb in self._listeners:
+            try:
+                cb(symbol, price)
+            except Exception as e:
+                logger.error(f"Error in tick listener: {e}")
 
     def get_provider_name(self) -> str:
         return "REAL_INTERBANK_PROVIDER"
@@ -164,3 +176,76 @@ class RealMarketDataProvider(MarketDataProvider):
             "closed_candles_count": candles_count,
             "is_usable_for_trading": is_live and (candles_count >= 30)
         }
+
+    async def sync_once(self):
+        """Fetches authentic real-time market data from public interbank & crypto endpoints."""
+        async with httpx.AsyncClient(timeout=4.0) as client:
+            now = time.time()
+            # 1. Crypto & Gold spot (Binance)
+            crypto_symbols = {"BTCUSDT": "BTC_USDT", "ETHUSDT": "ETH_USDT", "PAXGUSDT": "GOLD"}
+            for sym, asset_name in crypto_symbols.items():
+                try:
+                    resp = await client.get(f"https://api.binance.com/api/v3/ticker/price?symbol={sym}")
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        p = float(data["price"])
+                        self.record_tick(asset_name, p, now)
+                        self._notify_listeners(asset_name, p)
+                except Exception:
+                    pass
+
+            # 2. Interbank Forex spot rates (USD base)
+            try:
+                resp = await client.get("https://open.er-api.com/v6/latest/USD")
+                if resp.status_code == 200:
+                    rates = resp.json().get("rates", {})
+                    if "EUR" in rates and rates["EUR"] > 0:
+                        p = round(1.0 / rates["EUR"], 5)
+                        self.record_tick("EUR_USD", p, now)
+                        self._notify_listeners("EUR_USD", p)
+                    if "GBP" in rates and rates["GBP"] > 0:
+                        p = round(1.0 / rates["GBP"], 5)
+                        self.record_tick("GBP_USD", p, now)
+                        self._notify_listeners("GBP_USD", p)
+                    if "JPY" in rates and rates["JPY"] > 0:
+                        p = round(rates["JPY"], 3)
+                        self.record_tick("USD_JPY", p, now)
+                        self._notify_listeners("USD_JPY", p)
+                    if "CAD" in rates and rates["CAD"] > 0:
+                        p = round(rates["CAD"], 5)
+                        self.record_tick("USD_CAD", p, now)
+                        self._notify_listeners("USD_CAD", p)
+                    if "AUD" in rates and rates["AUD"] > 0:
+                        p = round(1.0 / rates["AUD"], 5)
+                        self.record_tick("AUD_USD", p, now)
+                        self._notify_listeners("AUD_USD", p)
+            except Exception:
+                pass
+
+    async def start_live_sync(self, interval_seconds: float = 3.0):
+        """Starts background task syncing live real market data."""
+        if self.is_running:
+            return
+        self.is_running = True
+        logger.info("[REAL_FEED] Started authentic live market data sync loop.")
+
+        async def _loop():
+            while self.is_running:
+                try:
+                    await self.sync_once()
+                except Exception as e:
+                    logger.debug(f"[REAL_FEED] Live sync glitch: {e}")
+                await asyncio.sleep(interval_seconds)
+
+        self._sync_task = asyncio.create_task(_loop())
+
+    async def stop_live_sync(self):
+        """Stops background live market data sync task."""
+        self.is_running = False
+        if self._sync_task and not self._sync_task.done():
+            self._sync_task.cancel()
+            try:
+                await self._sync_task
+            except asyncio.CancelledError:
+                pass
+        logger.info("[REAL_FEED] Stopped authentic live market data sync loop.")

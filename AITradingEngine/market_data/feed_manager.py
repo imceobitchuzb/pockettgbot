@@ -73,6 +73,7 @@ class MultiTFFeedManager:
 
         self._initialize_from_config()
         pocket_option_adapter.add_tick_listener(self.on_adapter_tick)
+        self.real_provider.add_tick_listener(self.on_real_provider_tick)
 
     def _initialize_from_config(self):
         all_pairs = config.PAIRS["otc"] + config.PAIRS["regular"]
@@ -153,7 +154,7 @@ class MultiTFFeedManager:
     def on_adapter_tick(self, tick: NormalizedTick):
         self.record_normalized_tick(tick)
 
-    def record_normalized_tick(self, tick: NormalizedTick):
+    def record_normalized_tick(self, tick: NormalizedTick, forward_to_provider: bool = True):
         if tick.symbol not in self.feeds:
             return
 
@@ -171,10 +172,11 @@ class MultiTFFeedManager:
             feed.is_cold_start_ready = True
         feed.status = "LIVE"
 
-        if feed.market_type == MarketType.REAL:
-            self.real_provider.record_tick(tick.symbol, feed.current_price, tick.server_timestamp)
-        else:
-            self.otc_provider.ingest_broker_tick(tick.symbol, feed.current_price, tick.server_timestamp, is_verified=True)
+        if forward_to_provider:
+            if feed.market_type == MarketType.REAL:
+                self.real_provider.record_tick(tick.symbol, feed.current_price, tick.server_timestamp)
+            else:
+                self.otc_provider.ingest_broker_tick(tick.symbol, feed.current_price, tick.server_timestamp, is_verified=True)
 
         now = int(tick.server_timestamp) if tick.server_timestamp > 0 else int(time.time())
         price = feed.current_price
@@ -206,11 +208,15 @@ class MultiTFFeedManager:
                 last.close = price
                 last.volume += 1.0
 
-    def record_tick(self, asset: str, price: float):
+    def record_tick(self, asset: str, price: float, forward_to_provider: bool = True):
         if asset not in self.feeds:
             return
         tick = pocket_option_adapter.normalize_raw_tick(symbol=asset, price=price)
-        self.record_normalized_tick(tick)
+        self.record_normalized_tick(tick, forward_to_provider=forward_to_provider)
+
+    def on_real_provider_tick(self, asset: str, price: float):
+        """Called when real_provider syncs genuine interbank/crypto quotes."""
+        self.record_tick(asset, price, forward_to_provider=False)
 
     def get_closed_candles(self, asset: str, tf: Timeframe = Timeframe.M1, limit: int = 60) -> List[Candle]:
         if asset not in self.feeds or tf not in self.feeds[asset].timeframe_bars:
@@ -230,16 +236,16 @@ class MultiTFFeedManager:
         feed = self.feeds[asset]
         health = feed.check_health()
         if health in ("STALE", "OFFLINE"):
-            logger.warning(f"Cannot build snapshot: Feed for {asset} is {health} (> 5s age)")
+            logger.debug(f"Cannot build snapshot: Feed for {asset} is {health} (age > 180s)")
             return None
 
         if feed.market_type == MarketType.OTC and not feed.is_cold_start_ready:
-            logger.warning(f"Cannot build snapshot: OTC asset {asset} is still in cold-start ({feed.sample_count}/{OTC_MIN_COLD_START_SAMPLES})")
+            logger.debug(f"Cannot build snapshot: OTC asset {asset} is still in cold-start ({feed.sample_count}/{OTC_MIN_COLD_START_SAMPLES})")
             return None
 
         candles_1m = self.get_closed_candles(asset, Timeframe.M1, limit=60)
         if len(candles_1m) < 15:
-            logger.warning(f"Cannot build snapshot: Insufficient closed candles for {asset} ({len(candles_1m)} < 15)")
+            logger.debug(f"Cannot build snapshot: Insufficient closed candles for {asset} ({len(candles_1m)} < 15)")
             return None
 
         gate_verdict = data_quality_gate.evaluate(

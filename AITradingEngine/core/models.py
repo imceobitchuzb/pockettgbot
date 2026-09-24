@@ -8,7 +8,8 @@ from typing import List, Dict, Any, Optional
 import time
 
 from AITradingEngine.core.enums import (
-    Direction, MarketType, Timeframe, QualityGrade, MarketRegime, SignalGateResult
+    Direction, MarketType, Timeframe, QualityGrade, MarketRegime, SignalGateResult,
+    SignalStrength, SignalLifecycleState
 )
 
 
@@ -217,7 +218,11 @@ class SignalGateResult:
 
 
 class FinalSignal:
-    """Complete institutional signal passed through all 12 gates."""
+    """
+    Unified Explainable Signal Model (Phase 10 & 14).
+    Contains full factor evidence, lifecycle states, gate checks, and risk disclosures.
+    Zero-Forced-Signal compliant.
+    """
     def __init__(
         self,
         signal_id: str,
@@ -232,9 +237,18 @@ class FinalSignal:
         confidence: float,
         setup_name: str,
         confluence_tags: List[str],
-        critic_verdict: CriticVerdict,
-        gate_result: SignalGateResult,
+        critic_verdict: Optional[CriticVerdict] = None,
+        gate_result: Optional[SignalGateResult] = None,
         rejection_reason: Optional[str] = None,
+        timeframe: Timeframe = Timeframe.M1,
+        confluence_score: Optional[float] = None,
+        market_regime: Union[MarketRegime, str] = MarketRegime.UNKNOWN,
+        data_quality: str = "PASS",
+        trend_state: str = "NEUTRAL",
+        momentum_state: str = "NEUTRAL",
+        volatility_state: str = "NORMAL",
+        structure_state: str = "RANGING",
+        blocked_reasons: Optional[List[str]] = None,
         **kwargs
     ):
         self.signal_id = signal_id
@@ -242,51 +256,111 @@ class FinalSignal:
         self.asset = symbol
         self.snapshot_id = kwargs.get("snapshot_id", f"{symbol}_{int(timestamp)}")
         self.market_type = market_type
+        self.timeframe = timeframe
         self.direction = direction
-        self.expiration_seconds = expiration_seconds
+        self.entry_price = float(entry_price)
+        self.target_exit_price = float(kwargs.get("target_exit_price", entry_price))
+        self.created_at = int(timestamp)
+        self.timestamp = float(timestamp)
+        self.expiration_seconds = int(expiration_seconds)
         self.expiration_label = expiration_label
         self.expiration_str = expiration_label
-        self.entry_price = entry_price
-        self.target_exit_price = kwargs.get("target_exit_price", entry_price)
-        self.timestamp = timestamp
+        self.valid_until = int(timestamp + expiration_seconds)
+
+        # Confluence & Strength (Phase 7 & 10)
+        # Score is 0 - 100
+        if confluence_score is not None:
+            self.confluence_score = round(float(confluence_score), 1)
+        else:
+            self.confluence_score = round(min(100.0, max(0.0, confidence * 100.0)), 1)
+
+        if self.confluence_score >= 85.0:
+            self.signal_strength = SignalStrength.VERY_STRONG
+        elif self.confluence_score >= 70.0:
+            self.signal_strength = SignalStrength.STRONG
+        elif self.confluence_score >= 50.0:
+            self.signal_strength = SignalStrength.MODERATE
+        else:
+            self.signal_strength = SignalStrength.WEAK
+
         self.grade = grade
         self.quality_grade = grade
-        self.confidence = confidence
-        self.confidence_percent = round(confidence * 100.0, 1)
+        self.confidence = float(confidence)
+        self.confidence_percent = self.confluence_score
+
+        # Factor states
+        self.market_regime = market_regime.value if hasattr(market_regime, "value") else str(market_regime)
+        self.data_quality = data_quality
+        self.trend_state = trend_state
+        self.momentum_state = momentum_state
+        self.volatility_state = volatility_state
+        self.structure_state = structure_state
+
         self.setup_name = setup_name
         self.primary_strategy = setup_name
-        self.confluence_tags = confluence_tags
-        self.confirming_strategies = confluence_tags
+        self.confluence_tags = list(confluence_tags)
+        self.confirming_strategies = list(confluence_tags)
+        self.reasons = list(confluence_tags)
         self.critic_verdict = critic_verdict
+        self.warnings = [critic_verdict.risk_notes] if critic_verdict and critic_verdict.risk_notes else []
         self.gate_result = gate_result
         self.rejection_reason = rejection_reason
-        self.status = "VALID" if (gate_result and gate_result.is_passed and direction != Direction.NO_SIGNAL) else "NO_TRADE"
-        self.created_at = int(timestamp)
-        self.valid_until = int(timestamp + expiration_seconds)
-        self.reasons = confluence_tags
-        self.warnings = [critic_verdict.risk_notes] if critic_verdict and critic_verdict.risk_notes else []
-        self.payout = kwargs.get("payout", 0.85)
+        self.blocked_reasons = blocked_reasons or ([rejection_reason] if rejection_reason else [])
+        self.payout = float(kwargs.get("payout", 0.85))
+
+        # Lifecycle State (Phase 14)
+        is_valid_dir = (direction in (Direction.CALL, Direction.PUT))
+        is_gate_passed = (gate_result and getattr(gate_result, "is_passed", False))
+        if is_valid_dir and is_gate_passed:
+            self.lifecycle_state = SignalLifecycleState.VALIDATED
+            self.status = "VALID"
+        else:
+            self.lifecycle_state = SignalLifecycleState.INVALIDATED
+            self.status = "NO_TRADE"
+
+    def transition_to(self, new_state: SignalLifecycleState):
+        """State machine transition for Signal Lifecycle (Phase 14)."""
+        self.lifecycle_state = new_state
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "signal_id": self.signal_id,
             "symbol": self.symbol,
-            "market_type": self.market_type.value,
-            "direction": self.direction.value,
-            "expiration_label": self.expiration_label,
-            "expiration_seconds": self.expiration_seconds,
+            "market_type": self.market_type.value if hasattr(self.market_type, "value") else str(self.market_type),
+            "timeframe": self.timeframe.value if hasattr(self.timeframe, "value") else str(self.timeframe),
+            "direction": self.direction.value if hasattr(self.direction, "value") else str(self.direction),
             "entry_price": self.entry_price,
+            "target_exit_price": self.target_exit_price,
+            "created_at": self.created_at,
             "timestamp": self.timestamp,
-            "grade": self.grade.value,
-            "confidence": self.confidence,
-            "setup_name": self.setup_name,
-            "confluence_tags": self.confluence_tags,
+            "expiration_seconds": self.expiration_seconds,
+            "expiration_label": self.expiration_label,
+            "signal_strength": self.signal_strength.value,
+            "confluence_score": self.confluence_score,
+            "market_regime": self.market_regime,
+            "data_quality": self.data_quality,
+            "trend_state": self.trend_state,
+            "momentum_state": self.momentum_state,
+            "volatility_state": self.volatility_state,
+            "structure_state": self.structure_state,
+            "reasons": self.reasons,
+            "warnings": self.warnings,
+            "blocked_reasons": self.blocked_reasons,
+            "grade": self.grade.value if hasattr(self.grade, "value") else str(self.grade),
             "status": self.status,
-            "rejection_reason": self.rejection_reason
+            "lifecycle_state": self.lifecycle_state.value,
+            "rejection_reason": self.rejection_reason,
+            "setup_name": self.setup_name,
+            "payout": self.payout
         }
 
     def __repr__(self) -> str:
-        return f"FinalSignal({self.signal_id} {self.symbol} {self.direction.value} {self.expiration_label} Grade:{self.grade.value})"
+        return f"Signal({self.signal_id} {self.symbol} {self.direction} {self.expiration_label} Strength:{self.signal_strength.value} Score:{self.confluence_score})"
+
+
+# Canonical Alias (Phase 10)
+Signal = FinalSignal
+
 
 
 @dataclass

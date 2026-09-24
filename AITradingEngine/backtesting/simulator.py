@@ -101,5 +101,6 @@ class BacktestSimulator:
             "metrics": metrics,
             "outcomes": outcomes,
             "trades_count": len(outcomes),
+            "trades_log": trades_log,
             "trades_sample": trades_log[:10]
         }

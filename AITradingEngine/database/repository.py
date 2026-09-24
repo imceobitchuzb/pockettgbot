@@ -3,7 +3,7 @@ import time
 import sqlite3
 from typing import List, Dict, Any, Optional
 
-from AITradingEngine.database.connection import get_database_connection
+from AITradingEngine.database.connection import get_database_connection, init_db
 from AITradingEngine.core.models import MarketSnapshot, FinalSignal, BacktestMetric
 from AITradingEngine.core.enums import MarketType, Timeframe
 
@@ -14,6 +14,13 @@ class QuantRepository:
     def __init__(self, conn: Optional[sqlite3.Connection] = None, db_path: Optional[str] = None):
         self._custom_conn = conn
         self._db_path = db_path
+        try:
+            if self._custom_conn is not None:
+                init_db(conn=self._custom_conn)
+            elif self._db_path is not None:
+                init_db(db_path=self._db_path)
+        except Exception:
+            pass
 
     def _get_conn(self) -> sqlite3.Connection:
         if self._custom_conn:
@@ -185,6 +192,81 @@ class QuantRepository:
                 ORDER BY timestamp DESC
             """)
             return [dict(row) for row in cur.fetchall()]
+        finally:
+            if close_on_finish:
+                conn.close()
+
+    def get_comprehensive_statistics(self) -> Dict[str, Any]:
+        """Calculates authentic, un-mocked performance metrics (Phase 15)."""
+        conn = self._get_conn()
+        close_on_finish = self._custom_conn is None
+        try:
+            cur = conn.execute("""
+                SELECT signal_id, timestamp, asset, market_type, direction,
+                       expiration_seconds, entry_price, exit_price, result,
+                       payout, pnl, market_regime, primary_strategy
+                FROM signals
+                ORDER BY timestamp ASC
+            """)
+            rows = [dict(r) for r in cur.fetchall()]
+
+            total_signals = len(rows)
+            resolved_trades = [r for r in rows if r["result"] in ("WIN", "LOSS")]
+            wins = sum(1 for r in resolved_trades if r["result"] == "WIN")
+            losses = sum(1 for r in resolved_trades if r["result"] == "LOSS")
+            win_rate = round(wins / len(resolved_trades) * 100.0, 1) if resolved_trades else 0.0
+
+            total_pnl = sum(r["pnl"] for r in resolved_trades)
+            gross_profit = sum(r["pnl"] for r in resolved_trades if r["pnl"] > 0)
+            gross_loss = abs(sum(r["pnl"] for r in resolved_trades if r["pnl"] < 0))
+            profit_factor = round(gross_profit / gross_loss, 2) if gross_loss > 0 else (999.0 if gross_profit > 0 else 0.0)
+            average_result = round(total_pnl / len(resolved_trades), 2) if resolved_trades else 0.0
+
+            # Calculate max consecutive loss streak
+            max_streak = 0
+            cur_streak = 0
+            for r in resolved_trades:
+                if r["result"] == "LOSS":
+                    cur_streak += 1
+                    max_streak = max(max_streak, cur_streak)
+                else:
+                    cur_streak = 0
+
+            # Breakdowns
+            by_asset: Dict[str, int] = {}
+            by_market: Dict[str, int] = {}
+            by_setup: Dict[str, int] = {}
+            by_regime: Dict[str, int] = {}
+            by_hour: Dict[int, int] = {}
+
+            for r in rows:
+                a = r["asset"]
+                by_asset[a] = by_asset.get(a, 0) + 1
+                m = r["market_type"]
+                by_market[m] = by_market.get(m, 0) + 1
+                s = r["primary_strategy"]
+                by_setup[s] = by_setup.get(s, 0) + 1
+                reg = r["market_regime"]
+                by_regime[reg] = by_regime.get(reg, 0) + 1
+                hr = time.gmtime(r["timestamp"]).tm_hour
+                by_hour[hr] = by_hour.get(hr, 0) + 1
+
+            return {
+                "total_signals": total_signals,
+                "resolved_trades": len(resolved_trades),
+                "wins": wins,
+                "losses": losses,
+                "win_rate": win_rate,
+                "profit_factor": profit_factor,
+                "total_pnl": round(total_pnl, 2),
+                "average_result": average_result,
+                "max_losing_streak": max_streak,
+                "signals_by_asset": by_asset,
+                "signals_by_market_type": by_market,
+                "signals_by_setup": by_setup,
+                "signals_by_market_regime": by_regime,
+                "signals_by_hour": by_hour
+            }
         finally:
             if close_on_finish:
                 conn.close()

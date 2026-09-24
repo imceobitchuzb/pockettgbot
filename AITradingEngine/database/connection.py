@@ -27,13 +27,17 @@ def get_db_connection(db_path: Optional[str] = None) -> sqlite3.Connection:
     return get_database_connection(db_path)
 
 
-def init_db(db_path: Optional[str] = None):
-    conn = get_database_connection(db_path)
+def init_db(db_path: Optional[str] = None, conn: Optional[sqlite3.Connection] = None):
+    close_after = False
+    if conn is None:
+        conn = get_database_connection(db_path)
+        close_after = True
     schema_path = os.path.join(os.path.dirname(__file__), "schema.sql")
     with open(schema_path, "r", encoding="utf-8") as f:
         conn.executescript(f.read())
     conn.commit()
-    conn.close()
+    if close_after:
+        conn.close()
 
 
 # Auto-initialize default database schema on import

@@ -3,574 +3,308 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Pocket Option AI Signal Engine | Institutional Terminal</title>
+  <title>Pocket Option Quant Signal Terminal | Dark Fintech</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body class="theme-dark">
-  <div class="app-container">
+  <div class="app-layout">
     
-    <!-- TOP APP HEADER -->
-    <header class="app-header">
-      <div class="header-left">
-        <div class="pair-selector-btn" id="pairSelectorBtn">
-          <div class="pair-info-wrapper">
-            <span class="pair-title" id="headerPairName">AUD/CHF OTC</span>
-            <span class="pair-category" id="headerPairCategory">OTC Рынок • 24/7 Стрим • 92%</span>
+    <!-- TOP NAVIGATION BAR -->
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <div class="pair-trigger" id="pairSelectorBtn">
+          <div class="pair-meta">
+            <div class="pair-name-row">
+              <span class="pair-name" id="headerPairName">EUR/USD OTC</span>
+              <span class="pair-tag" id="headerMarketTag">OTC</span>
+            </div>
+            <span class="pair-sub" id="headerPayout">Пейаут: 92% • 1M TF</span>
           </div>
-          <svg class="dropdown-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          <svg class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </div>
       </div>
-      
-      <div class="header-right">
-        <div class="connection-status" id="connectionStatus" title="Статус WebSocket стрима">
-          <span class="pulse-dot"></span>
-          <span class="status-text" id="statusText">LIVE 24ms</span>
+
+      <div class="top-bar-right">
+        <!-- LIVE STATUS PILL -->
+        <div class="status-pill status-live" id="connectionStatus" title="Статус потока данных">
+          <span class="status-indicator"></span>
+          <span class="status-label" id="statusText">LIVE</span>
+          <span class="status-latency" id="statusLatency">24ms</span>
         </div>
-        <button class="icon-btn" id="btnOpenDebugger" title="Дебаггер котировок Pocket Option">
-          <span>🛠</span>
+
+        <button class="tool-btn" id="btnUploadScreenshot" title="Загрузить скриншот графика">
+          <span>📷</span>
         </button>
-        <button class="icon-btn" id="btnOpenSettings" title="Настройки сигналов">
+        <button class="tool-btn" id="btnOpenHistory" title="История сделок">
+          <span>📜</span>
+        </button>
+        <button class="tool-btn" id="btnOpenSettings" title="Настройки фильтров">
           <span>⚙️</span>
-        </button>
-        <button class="theme-toggle-btn" id="themeToggleBtn" title="Сменить тему">
-          <span class="theme-icon">☀️</span>
         </button>
       </div>
     </header>
 
-    <!-- TAB 1: SIGNALS & LIVE TERMINAL -->
-    <main class="tab-content active" id="tabSignals">
+    <!-- MAIN DASHBOARD CONTENT -->
+    <main class="dashboard-grid">
       
-      <!-- SUB-HEADER RESULT & ACTION BADGE -->
-      <div class="signal-sub-header">
-        <div class="sub-left">
-          <span class="result-label">Режим квант-движка</span>
-          <span class="signal-time-ago" id="signalRegimeBadge">12-GATE AUDIT • ACTIVE</span>
-        </div>
-        <div class="sub-right">
-          <span class="status-badge badge-buy" id="headerSignalBadge">READY</span>
-        </div>
-      </div>
-
-      <!-- CENTRAL HERO CARD -->
-      <section class="hero-signal-card" id="heroSignalCard">
-        <!-- THINKING / ANALYZING OVERLAY -->
-        <div class="thinking-overlay" id="thinkingOverlay" style="display: none;">
-          <div class="thinking-brain-pulse">
-            <div class="radar-pulse-ring"></div>
-            <span class="brain-emoji">🧠</span>
-          </div>
-          <div class="thinking-texts">
-            <span class="thinking-headline">Аудит 12 ворот безопасности...</span>
-            <span class="thinking-stage-text" id="thinkingStageText">Проверка латентности, MTF и AI Critic...</span>
-          </div>
-          <div class="thinking-progress-container">
-            <div class="thinking-progress-bar" id="thinkingProgressBar"></div>
-          </div>
-        </div>
-
-        <!-- ACCURACY BADGE (PLATT-CALIBRATED STATISTICAL CONFIDENCE) -->
-        <div class="accuracy-badge" id="accuracyBadge">
-          <div class="accuracy-badge-content">
-            <span class="badge-icon">🎯</span>
-            <div class="badge-texts">
-              <span class="badge-title">КАЛИБРОВАННАЯ ТОЧНОСТЬ</span>
-              <span class="badge-percent" id="heroConfidencePercent">78.4% (Grade A)</span>
+      <!-- LEFT / CENTRAL SECTION: SIGNAL & CHART -->
+      <section class="main-panel">
+        
+        <!-- CENTRAL SIGNAL HERO CARD -->
+        <div class="signal-card" id="signalCard">
+          <div class="signal-card-header">
+            <div class="regime-badge-container">
+              <span class="regime-dot"></span>
+              <span class="regime-text" id="marketRegimeText">TREND_UP • НОРМАЛЬНАЯ ВОЛАТИЛЬНОСТЬ</span>
+            </div>
+            <div class="strength-badge" id="signalStrengthBadge">
+              <span class="strength-label">СИЛА СИГНАЛА:</span>
+              <span class="strength-value" id="signalStrengthValue">STRONG</span>
             </div>
           </div>
-          <div class="accuracy-pulse"></div>
-        </div>
 
-        <!-- BIG DIRECTIONAL DYNAMIC ARROW -->
-        <div class="direction-arrow-container" id="directionArrowContainer">
-          <svg class="direction-arrow arrow-buy" id="heroArrowSvg" viewBox="0 0 160 120" fill="none">
-            <path d="M20 90 C 45 90, 55 45, 95 65 C 115 75, 125 35, 140 25" stroke="currentColor" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M120 20 L 142 24 L 140 46" stroke="currentColor" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </div>
+          <div class="signal-main-row">
+            <!-- DIRECTION BADGE -->
+            <div class="direction-box" id="directionBox">
+              <span class="direction-arrow" id="directionArrow">▲</span>
+              <span class="direction-title" id="directionTitle">CALL</span>
+              <span class="direction-subtitle" id="directionSubtitle">ВВЕРХ</span>
+            </div>
 
-        <!-- "ВАШ СИГНАЛ: CALL/PUT/NO TRADE" PILL -->
-        <div class="signal-pill-btn" id="signalPillBtn">
-          <span class="pill-label">Вердикт системы</span>
-          <span class="pill-action action-buy" id="heroSignalAction">CALL</span>
-        </div>
-      </section>
+            <!-- SCORE & ENTRY METRICS -->
+            <div class="signal-metrics-column">
+              <div class="score-widget">
+                <span class="score-caption">CONFLUENCE SCORE</span>
+                <div class="score-number-row">
+                  <span class="score-large" id="confluenceScore">78</span>
+                  <span class="score-total">/100</span>
+                </div>
+                <div class="score-bar-bg">
+                  <div class="score-bar-fill" id="scoreBarFill" style="width: 78%;"></div>
+                </div>
+              </div>
 
-      <!-- 4 STATS PARAMETER TILES -->
-      <section class="stats-grid">
-        <div class="stat-card" id="cardEntryPrice">
-          <span class="stat-label">Точка входа</span>
-          <span class="stat-value" id="valEntryPrice">0.66147</span>
-        </div>
-        <div class="stat-card" id="cardExitPrice">
-          <span class="stat-label">Целевой выход</span>
-          <span class="stat-value" id="valExitPrice">0.66198</span>
-        </div>
-        <div class="stat-card clickable-card" id="expirationCard" title="Нажмите для смены времени">
-          <span class="stat-label">Экспирация</span>
-          <span class="stat-value highlight" id="valExpiration">1 мин</span>
-        </div>
-        <div class="stat-card" id="resultStatusCard">
-          <span class="stat-label">Статус таймера</span>
-          <span class="stat-value win-status" id="valResult">ГОТОВ</span>
-        </div>
-      </section>
-
-      <!-- 12-GATE SAFETY AUDIT BADGE ROW -->
-      <div class="gate-audit-summary" id="gateAuditSummary">
-        <div class="gate-summary-header">
-          <span class="gate-title">🛡️ 12-Gate Safety Pipeline Audit:</span>
-          <span class="gate-status-pill pass-pill" id="gatePillStatus">12/12 PASSED</span>
-        </div>
-        <div class="gate-chips" id="gateChipsList">
-          <span class="gate-chip pass" title="Data Integrity">✓ Data</span>
-          <span class="gate-chip pass" title="Regime Safety">✓ Regime</span>
-          <span class="gate-chip pass" title="MTF Alignment">✓ MTF</span>
-          <span class="gate-chip pass" title="Confluence >= 3">✓ 3+ Strategies</span>
-          <span class="gate-chip pass" title="No Conflict">✓ Consensus</span>
-          <span class="gate-chip pass" title="AI Critic Approved">✓ Critic</span>
-          <span class="gate-chip pass" title="EV > +0.05">✓ Edge</span>
-          <span class="gate-chip pass" title="Out-Of-Sample Test">✓ OOS</span>
-          <span class="gate-chip pass" title="Latency < 350ms">✓ Latency</span>
-          <span class="gate-chip pass" title="Noise Filter">✓ Low Noise</span>
-          <span class="gate-chip pass" title="Payout >= 80%">✓ Payout</span>
-          <span class="gate-chip pass" title="Anti-Overtrading Cooldown">✓ Risk Guard</span>
-        </div>
-      </div>
-
-      <!-- EXPIRATION SELECTOR ROW -->
-      <div class="expiration-selector-row">
-        <span class="exp-row-label">Экспирация:</span>
-        <div class="exp-chips">
-          <button class="exp-chip" data-exp="15s">15с</button>
-          <button class="exp-chip" data-exp="30s">30с</button>
-          <button class="exp-chip active" data-exp="1">1 мин</button>
-          <button class="exp-chip" data-exp="2">2 мин</button>
-          <button class="exp-chip" data-exp="3">3 мин</button>
-          <button class="exp-chip" data-exp="5">5 мин</button>
-        </div>
-      </div>
-
-      <!-- DUAL ACTION BUTTONS: SINGLE ANALYZE & AUTONOMOUS 24/7 SCAN -->
-      <div class="action-buttons-wrap dual-actions">
-        <button class="btn-primary-action" id="btnGenerateSignal">
-          <span class="btn-icon">⚡</span>
-          <span class="btn-text">Анализировать пару</span>
-          <span class="btn-glow"></span>
-        </button>
-        <button class="btn-secondary-action" id="btnAutoScan">
-          <span class="btn-icon">🔍</span>
-          <span class="btn-text">24/7 Сканер рынка</span>
-        </button>
-      </div>
-
-      <!-- LIVE CANDLESTICK CHART CONTAINER -->
-      <section class="chart-section">
-        <div class="chart-header">
-          <div class="chart-title-wrap">
-            <span class="chart-title">Прямой эфир свечей</span>
-            <span class="chart-timeframe-tag" id="chartCurrentPriceTag">0.66147</span>
-            <span class="chart-countdown-tag" id="chartCandleCountdown" title="Время до закрытия текущей свечи">⏱ 00:59</span>
+              <div class="entry-grid">
+                <div class="entry-tile">
+                  <span class="tile-label">Точка входа</span>
+                  <span class="tile-val" id="entryPriceVal">1.08450</span>
+                </div>
+                <div class="entry-tile">
+                  <span class="tile-label">Экспирация</span>
+                  <div class="exp-toggle-group">
+                    <button class="exp-chip active" data-exp="1">1M</button>
+                    <button class="exp-chip" data-exp="2">2M</button>
+                    <button class="exp-chip" data-exp="3">3M</button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="chart-header-actions">
-            <button class="btn-sync-price" id="btnSyncPrice" title="Сверить цену с Pocket Option">🎯 Сверить</button>
-            <div class="chart-timeframes">
-              <button class="tf-btn" data-tf="15s">15S</button>
-              <button class="tf-btn" data-tf="30s">30S</button>
+
+          <!-- EVIDENCE & RISK ACCORDION -->
+          <div class="evidence-section">
+            <span class="evidence-title">Подтверждающие факторы (Evidence):</span>
+            <div class="evidence-tags" id="evidenceTags">
+              <span class="evidence-tag">✓ EMA 9 > 21 Trend</span>
+              <span class="evidence-tag">✓ RSI Bullish Momentum</span>
+              <span class="evidence-tag">✓ Support Rejection</span>
+              <span class="evidence-tag">✓ MTF Concordance</span>
+            </div>
+          </div>
+
+          <div class="risk-section">
+            <span class="risk-title">Зоны риска (Disclosures):</span>
+            <span class="risk-text" id="riskText">⚠ Локальное сопротивление через 4 пункта. Стандартный 1% риск на сделку.</span>
+          </div>
+
+          <!-- PRIMARY ACTION TRIGGER -->
+          <button class="analyze-btn" id="btnGenerateSignal">
+            <span class="btn-spinner" id="analyzeSpinner" style="display: none;"></span>
+            <span id="analyzeBtnText">⚡ СКАНИРОВАТЬ АКТИВ (12 GATES)</span>
+          </button>
+        </div>
+
+        <!-- LIVE CANDLESTICK CHART CONTAINER -->
+        <div class="chart-container">
+          <div class="chart-header">
+            <div class="chart-header-left">
+              <span class="chart-title">ГРАФИК СВЕЧЕЙ (ЗАКРЫТЫЕ БАРЫ)</span>
+              <span class="chart-candle-time" id="candleCountdown">00:42</span>
+            </div>
+            <div class="chart-tf-selector">
               <button class="tf-btn active" data-tf="1m">1M</button>
+              <button class="tf-btn" data-tf="3m">3M</button>
               <button class="tf-btn" data-tf="5m">5M</button>
             </div>
           </div>
-        </div>
-
-        <!-- POCKET OPTION CALIBRATION BAR -->
-        <div class="sync-price-bar" id="syncPriceBar" style="display: none;">
-          <span class="sync-hint">Введите точную цену с экрана Pocket Option для ручной юстировки:</span>
-          <div class="sync-input-row">
-            <input type="number" step="any" id="inputSyncPrice" placeholder="Например, 157.642">
-            <button class="btn-apply-sync" id="btnApplySync">Применить</button>
-            <button class="btn-cancel-sync" id="btnCancelSync">✕</button>
+          <div class="canvas-wrapper">
+            <canvas id="candleChartCanvas"></canvas>
           </div>
         </div>
 
-        <div class="chart-canvas-container">
-          <canvas id="candleChartCanvas"></canvas>
-          <div class="chart-overlay-info" id="chartOverlayInfo"></div>
-        </div>
-
-        <div class="chart-footer-legend">
-          <span class="legend-item"><span class="dot-green"></span> Бычья</span>
-          <span class="legend-item"><span class="dot-red"></span> Медвежья</span>
-          <span class="legend-item"><span class="dot-sar"></span> SAR</span>
-          <span class="legend-item"><span class="dot-zigzag"></span> ZigZag</span>
-        </div>
       </section>
 
-      <!-- LIVE TERMINAL ACTIVITY FEED -->
-      <section class="activity-feed-section">
-        <div class="feed-header">
-          <span class="feed-title">📡 Live Quant Activity Feed</span>
-          <span class="feed-badge">STREAMS ACTIVE</span>
-        </div>
-        <div class="activity-log-box" id="activityLogBox">
-          <div class="log-entry">
-            <span class="log-time">[LIVE]</span>
-            <span class="log-msg">Служба котировок PocketOptionLiveAdapter активна. Задержка 18мс.</span>
+      <!-- RIGHT SIDE PANEL: MULTI-TIMEFRAME & FACTOR SCORES -->
+      <aside class="side-panel">
+        
+        <!-- MTF CONCORDANCE CARD -->
+        <div class="panel-card">
+          <div class="panel-card-title">
+            <span>MULTI-TIMEFRAME АНАЛИЗ</span>
+            <span class="panel-card-tag" id="mtfConcordanceBadge">СОГЛАСОВАН</span>
           </div>
-          <div class="log-entry">
-            <span class="log-time">[GATE]</span>
-            <span class="log-msg">Anti-Overtrading Guard: кулдаун 45 сек на инструмент включен.</span>
+          <div class="mtf-grid">
+            <div class="mtf-row">
+              <span class="mtf-tf">1M (Вход 40%)</span>
+              <span class="mtf-bias bias-bullish" id="mtf1m">BULLISH ▲</span>
+            </div>
+            <div class="mtf-row">
+              <span class="mtf-tf">3M (Структура 25%)</span>
+              <span class="mtf-bias bias-bullish" id="mtf3m">BULLISH ▲</span>
+            </div>
+            <div class="mtf-row">
+              <span class="mtf-tf">5M (Тренд 20%)</span>
+              <span class="mtf-bias bias-bullish" id="mtf5m">BULLISH ▲</span>
+            </div>
+            <div class="mtf-row">
+              <span class="mtf-tf">15M (Макро 15%)</span>
+              <span class="mtf-bias bias-neutral" id="mtf15m">NEUTRAL ━</span>
+            </div>
           </div>
         </div>
-      </section>
 
-      <!-- STRATEGY CONFLUENCE BREAKDOWN -->
-      <section class="indicators-section">
-        <div class="indicators-header">
-          <span class="ind-title">🧠 Консенсус 9 квант-стратегий</span>
-          <span class="ind-badge" id="indConfluenceCount">Стратегии проверены</span>
+        <!-- FACTOR ENGINE AUDIT CARD -->
+        <div class="panel-card">
+          <div class="panel-card-title">
+            <span>ФАКТОРЫ СИСТЕМЫ (0-100)</span>
+          </div>
+          <div class="factors-list">
+            <div class="factor-row">
+              <div class="factor-meta">
+                <span class="factor-name">Trend (EMA/ADX)</span>
+                <span class="factor-val" id="factorTrendVal">84%</span>
+              </div>
+              <div class="factor-bar-bg"><div class="factor-bar-fill" id="factorTrendBar" style="width: 84%;"></div></div>
+            </div>
+            <div class="factor-row">
+              <div class="factor-meta">
+                <span class="factor-name">Momentum (RSI/MACD)</span>
+                <span class="factor-val" id="factorMomentumVal">76%</span>
+              </div>
+              <div class="factor-bar-bg"><div class="factor-bar-fill" id="factorMomentumBar" style="width: 76%;"></div></div>
+            </div>
+            <div class="factor-row">
+              <div class="factor-meta">
+                <span class="factor-name">Price Action (Wicks/Candles)</span>
+                <span class="factor-val" id="factorPriceActionVal">70%</span>
+              </div>
+              <div class="factor-bar-bg"><div class="factor-bar-fill" id="factorPriceActionBar" style="width: 70%;"></div></div>
+            </div>
+            <div class="factor-row">
+              <div class="factor-meta">
+                <span class="factor-name">Data Quality (Gate)</span>
+                <span class="factor-val" id="factorDataQualityVal">100%</span>
+              </div>
+              <div class="factor-bar-bg"><div class="factor-bar-fill factor-green" id="factorDataQualityBar" style="width: 100%;"></div></div>
+            </div>
+          </div>
         </div>
 
-        <div class="indicators-list" id="indicatorsList">
-          <!-- Populated dynamically by JS -->
+        <!-- PERFORMANCE MINI CARD -->
+        <div class="panel-card">
+          <div class="panel-card-title">
+            <span>СТАТИСТИКА СЕССИИ</span>
+            <a href="#" id="linkFullPerf" class="card-link">Подробнее</a>
+          </div>
+          <div class="perf-stats-row">
+            <div class="perf-tile">
+              <span class="perf-label">Сигналов</span>
+              <span class="perf-number" id="statsTotalSignals">0</span>
+            </div>
+            <div class="perf-tile">
+              <span class="perf-label">Win Rate</span>
+              <span class="perf-number" id="statsWinRate">N/A</span>
+            </div>
+            <div class="perf-tile">
+              <span class="perf-label">Profit Factor</span>
+              <span class="perf-number" id="statsProfitFactor">0.0</span>
+            </div>
+          </div>
         </div>
-      </section>
 
+      </aside>
     </main>
 
-    <!-- TAB 2: 24/7 MARKET SCANNER TABLE -->
-    <section class="tab-content" id="tabScanner">
-      <div class="page-title-box">
-        <h2>📊 24/7 Сканер всех инструментов</h2>
-        <p>Ранжирование активов по качеству рынка (Market Quality Score) и готовности сетапов.</p>
-      </div>
-
-      <div class="scanner-filter-bar">
-        <button class="scanner-tab active" data-filter="all">Все (OTC + Real)</button>
-        <button class="scanner-tab" data-filter="otc">Только OTC</button>
-        <button class="scanner-tab" data-filter="real">Биржа</button>
-      </div>
-
-      <div class="scanner-table-wrap">
-        <table class="scanner-table" id="scannerTable">
-          <thead>
-            <tr>
-              <th>Пара</th>
-              <th>Цена</th>
-              <th>Выплата</th>
-              <th>Статус</th>
-              <th>Действие</th>
-            </tr>
-          </thead>
-          <tbody id="scannerTableBody">
-            <!-- Populated dynamically by JS -->
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- TAB 3: PHOTO / SCREENSHOT ANALYSIS (VISION QUANT) -->
-    <section class="tab-content" id="tabVision">
-      <div class="page-title-box">
-        <h2>📸 Vision Quant: Анализ графика</h2>
-        <p>Загрузите скриншот терминала Pocket Option. Нейросетевой детектор валидирует свечи, проверяет синхронизацию с живым стримом и исключает ложные сигналы.</p>
-      </div>
-
-      <div class="upload-dropzone" id="uploadDropzone">
-        <input type="file" id="fileInput" accept="image/*" class="file-input-hidden">
-        <div class="dropzone-inner" id="dropzonePrompt">
-          <div class="upload-icon">📁</div>
-          <span class="upload-main-text">Нажмите или перетащите скриншот</span>
-          <span class="upload-sub-text">PNG, JPG с экрана Pocket Option, Quotex и др.</span>
-          <button class="btn-select-file" type="button" onclick="document.getElementById('fileInput').click()">Выбрать файл</button>
-        </div>
-        
-        <div class="dropzone-preview" id="dropzonePreview" style="display: none;">
-          <img id="previewImg" src="" alt="Скриншот графика">
-          <button class="btn-clear-img" id="btnClearImg">✕ Удалить</button>
-        </div>
-      </div>
-
-      <div class="action-buttons-wrap">
-        <button class="btn-primary-action" id="btnAnalyzePhoto" disabled>
-          <span class="btn-icon">🔍</span>
-          <span class="btn-text">Проанализировать свечную структуру</span>
-        </button>
-      </div>
-
-      <!-- RESULT OF PHOTO ANALYSIS -->
-      <div class="photo-analysis-result" id="photoResultBox" style="display: none;">
-        <div class="photo-result-header">
-          <div class="result-pair" id="photoPairName">USD/JPY OTC</div>
-          <div class="result-confidence" id="photoConfidence">76.8% проходимость</div>
-        </div>
-
-        <div class="photo-signal-hero">
-          <span class="photo-direction-badge" id="photoDirectionBadge">CALL</span>
-          <div class="photo-signal-desc" id="photoSignalDesc">Рекомендуется вход на повышение (CALL)</div>
-        </div>
-
-        <div class="photo-stats-grid">
-          <div class="p-stat">
-            <span class="p-label">Стрим-проверка</span>
-            <span class="p-val" id="photoSyncVal">SYNCED (0.01%)</span>
-          </div>
-          <div class="p-stat">
-            <span class="p-label">Экспирация</span>
-            <span class="p-val" id="photoExpVal">1 мин</span>
-          </div>
-        </div>
-
-        <div class="photo-indicators-list" id="photoIndicatorsList">
-          <!-- Populated by JS -->
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB 4: HISTORY & AUDIT -->
-    <section class="tab-content" id="tabHistory">
-      <div class="history-stats-banner">
-        <div class="banner-stat">
-          <span class="b-stat-num" id="statTotalSignals">0</span>
-          <span class="b-stat-label">Всего сигналов</span>
-        </div>
-        <div class="banner-stat">
-          <span class="b-stat-num win-text" id="statWinRate">0%</span>
-          <span class="b-stat-label">Винрейт (Edge)</span>
-        </div>
-        <div class="banner-stat">
-          <span class="b-stat-num green-text" id="statWinsCount">0</span>
-          <span class="b-stat-label">WIN</span>
-        </div>
-        <div class="banner-stat">
-          <span class="b-stat-num red-text" id="statLossCount">0</span>
-          <span class="b-stat-label">LOSS</span>
-        </div>
-      </div>
-
-      <div class="history-list-header">
-        <span class="list-title">Журнал закрытых сделок (WAL Persistence)</span>
-        <button class="btn-refresh-history" id="btnRefreshHistory">↻ Обновить</button>
-      </div>
-
-      <div class="history-cards-container" id="historyCardsContainer">
-        <!-- Rendered by JS -->
-      </div>
-    </section>
-
-    <!-- TAB 5: EDUCATION & FAQ -->
-    <section class="tab-content" id="tabEducation">
-      <div class="education-container">
-        <h2>📚 Институциональная база знаний</h2>
-        <p class="edu-subtitle">Руководство по 12-Gate фильтрации и риск-менеджменту</p>
-
-        <div class="edu-card">
-          <div class="edu-card-icon">🛡️</div>
-          <div class="edu-card-body">
-            <h3>Zero-Forced-Signal: Почему бот молчит?</h3>
-            <p>Бот не выдает сделки без математического преимущества (Edge). Если на рынке хаос, повышенный шум, флэт или конфликт таймфреймов — система фиксирует <strong>NO TRADE</strong>, защищая баланс от потерь.</p>
-          </div>
-        </div>
-
-        <div class="edu-card">
-          <div class="edu-card-icon">⚡</div>
-          <div class="edu-card-body">
-            <h3>Двухслойный AI: Analyst + Adversarial Critic</h3>
-            <p>AI #1 (Analyst) находит сетап по 9 стратегиям. Затем AI #2 (Critic) независимо ищет риски и слабые места. Если критик находит причину не входить — ордер отменяется до выдачи пользователю.</p>
-          </div>
-        </div>
-
-        <div class="edu-card">
-          <div class="edu-card-icon">📈</div>
-          <div class="edu-card-body">
-            <h3>Особенности OTC и холодный старт (Cold-Start)</h3>
-            <p>Котировки OTC строго изолированы от межбанковского рынка. Каждая OTC пара проходит холодный старт (минимум 500 тиков) перед активацией для защиты от случайных всплесков.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- BOTTOM TAB NAVIGATION BAR -->
-    <nav class="bottom-nav">
-      <button class="nav-tab active" data-tab="tabSignals">
-        <div class="nav-icon active-pill">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
-            <polyline points="17 6 23 6 23 12"></polyline>
-          </svg>
-        </div>
-        <span class="nav-label">Сигналы</span>
-      </button>
-
-      <button class="nav-tab" data-tab="tabScanner">
-        <div class="nav-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-            <line x1="8" y1="21" x2="16" y2="21"></line>
-            <line x1="12" y1="17" x2="12" y2="21"></line>
-          </svg>
-        </div>
-        <span class="nav-label">Сканер</span>
-      </button>
-
-      <button class="nav-tab" data-tab="tabVision">
-        <div class="nav-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-            <circle cx="12" cy="13" r="4"></circle>
-          </svg>
-        </div>
-        <span class="nav-label">Фото</span>
-      </button>
-
-      <button class="nav-tab" data-tab="tabHistory">
-        <div class="nav-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-            <polyline points="14 2 14 8 20 8"></polyline>
-            <line x1="16" y1="13" x2="8" y2="13"></line>
-            <line x1="16" y1="17" x2="8" y2="17"></line>
-          </svg>
-        </div>
-        <span class="nav-label">История</span>
-      </button>
-
-      <button class="nav-tab" data-tab="tabEducation">
-        <div class="nav-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-          </svg>
-        </div>
-        <span class="nav-label">Инфо</span>
-      </button>
-    </nav>
-
-    <!-- PAIR SELECTION MODAL -->
-    <div class="modal-backdrop" id="pairsModal">
-      <div class="modal-dialog">
+    <!-- MODAL: PAIR SELECTOR -->
+    <div class="modal-overlay" id="pairModal" style="display: none;">
+      <div class="modal-window">
         <div class="modal-header">
-          <span class="modal-title">Выберите торговый инструмент</span>
-          <button class="btn-close-modal" id="btnClosePairsModal">✕</button>
+          <span class="modal-title">ВЫБОР ИНСТРУМЕНТА</span>
+          <button class="modal-close" id="btnClosePairModal">✕</button>
         </div>
-
-        <div class="modal-category-tabs">
-          <button class="cat-tab active" data-cat="otc">Рынки OTC (24/7)</button>
-          <button class="cat-tab" data-cat="regular">Биржа (Межбанк)</button>
+        <div class="modal-tabs">
+          <button class="modal-tab active" id="tabOtcPairs">OTC РЫНОК (24/7)</button>
+          <button class="modal-tab" id="tabRealPairs">REAL INTERBANK</button>
         </div>
-
-        <div class="pairs-list" id="pairsListModal">
-          <!-- Populated by JS -->
+        <div class="pairs-scroll-list" id="pairsScrollList">
+          <!-- Populated by JavaScript -->
         </div>
       </div>
     </div>
 
-    <!-- SETTINGS MODAL (SIGNAL SETTINGS PIPELINE) -->
-    <div class="modal-backdrop" id="settingsModal">
-      <div class="modal-dialog">
+    <!-- MODAL: SCREENSHOT SCANNER -->
+    <div class="modal-overlay" id="screenshotModal" style="display: none;">
+      <div class="modal-window modal-wide">
         <div class="modal-header">
-          <span class="modal-title">⚙️ Настройки AI Signal Engine</span>
-          <button class="btn-close-modal" id="btnCloseSettingsModal">✕</button>
+          <span class="modal-title">VISION QUANT СКАНЕР СКРИНШОТОВ</span>
+          <button class="modal-close" id="btnCloseScreenshotModal">✕</button>
         </div>
-
-        <div class="settings-content">
-          <div class="setting-group">
-            <label class="setting-label">Торговый режим:</label>
-            <div class="mode-chips">
-              <button class="mode-chip" data-mode="CONSERVATIVE">Консервативный</button>
-              <button class="mode-chip active" data-mode="STANDARD">Стандартный</button>
-              <button class="mode-chip" data-mode="AGGRESSIVE">Агрессивный</button>
-            </div>
+        <div class="screenshot-dropzone" id="screenshotDropzone">
+          <input type="file" id="screenshotFileInput" accept="image/*" style="display: none;">
+          <div class="dropzone-prompt">
+            <span class="dropzone-icon">📷</span>
+            <span class="dropzone-headline">Перетащите скриншот графика сюда или нажмите для выбора</span>
+            <span class="dropzone-sub">Поддерживает графики Pocket Option и Quotex (PNG, JPG)</span>
           </div>
-
-          <div class="setting-group">
-            <div class="setting-label-row">
-              <label class="setting-label">Мин. уверенность (Platt Confidence):</label>
-              <span class="setting-val-badge" id="lblMinConfidence">75%</span>
-            </div>
-            <input type="range" class="range-slider" id="rngMinConfidence" min="60" max="90" step="1" value="75">
-          </div>
-
-          <div class="setting-group">
-            <div class="setting-label-row">
-              <label class="setting-label">Мин. совпадение стратегий (Confluence):</label>
-              <span class="setting-val-badge" id="lblMinConfluence">3 из 9</span>
-            </div>
-            <input type="range" class="range-slider" id="rngMinConfluence" min="2" max="6" step="1" value="3">
-          </div>
-
-          <div class="setting-group">
-            <div class="setting-label-row">
-              <label class="setting-label">Мин. выплата брокера (Payout):</label>
-              <span class="setting-val-badge" id="lblMinPayout">80%</span>
-            </div>
-            <input type="range" class="range-slider" id="rngMinPayout" min="70" max="95" step="1" value="80">
-          </div>
-
-          <div class="setting-group toggle-group">
-            <div class="toggle-text">
-              <span class="toggle-title">Adversarial Critic (Строгий режим)</span>
-              <span class="toggle-desc">Обязательное вето при сомнительной структуре</span>
-            </div>
-            <input type="checkbox" id="chkStrictCritic" checked>
-          </div>
-
-          <div class="setting-group toggle-group">
-            <div class="toggle-text">
-              <span class="toggle-title">Рынок OTC включен</span>
-              <span class="toggle-desc">Разрешить анализ синтетических пулов 24/7</span>
-            </div>
-            <input type="checkbox" id="chkOtcEnabled" checked>
-          </div>
-
-          <div class="settings-actions">
-            <button class="btn-save-settings" id="btnSaveSettings">💾 Применить и сохранить</button>
-            <button class="btn-reset-settings" id="btnResetSettings">Сброс по умолчанию</button>
-          </div>
+        </div>
+        <div class="screenshot-result-area" id="screenshotResultArea" style="display: none;">
+          <!-- Result rendered dynamically -->
         </div>
       </div>
     </div>
 
-    <!-- DEBUGGER / PRICE COMPARISON MODAL -->
-    <div class="modal-backdrop" id="debuggerModal">
-      <div class="modal-dialog">
+    <!-- MODAL: SETTINGS -->
+    <div class="modal-overlay" id="settingsModal" style="display: none;">
+      <div class="modal-window">
         <div class="modal-header">
-          <span class="modal-title">🛠 Дебаггер прямого эфира котировок</span>
-          <button class="btn-close-modal" id="btnCloseDebuggerModal">✕</button>
+          <span class="modal-title">ПАРАМЕТРЫ ФИЛЬТРАЦИИ СИГНАЛОВ</span>
+          <button class="modal-close" id="btnCloseSettingsModal">✕</button>
         </div>
-
-        <div class="debugger-content">
-          <div class="debugger-health-box" id="debuggerHealthBox">
-            <div class="health-item">
-              <span class="h-label">WebSocket стрим:</span>
-              <span class="h-val green" id="dbgWsStatus">ПОДКЛЮЧЕНО</span>
+        <div class="settings-body">
+          <div class="setting-item">
+            <div class="setting-label-row">
+              <span>Минимальный Confluence Score</span>
+              <span id="cfgMinConfVal">70</span>
             </div>
-            <div class="health-item">
-              <span class="h-label">Средний пинг:</span>
-              <span class="h-val" id="dbgLatencyVal">18.4 мс</span>
-            </div>
-            <div class="health-item">
-              <span class="h-label">Latency Gate:</span>
-              <span class="h-val green">350мс (PASS)</span>
-            </div>
+            <input type="range" min="50" max="90" value="70" class="setting-range" id="cfgMinConf">
           </div>
-
-          <div class="debugger-table-wrap">
-            <table class="debugger-table" id="debuggerTable">
-              <thead>
-                <tr>
-                  <th>Актив</th>
-                  <th>Источник</th>
-                  <th>Бот</th>
-                  <th>Дельта</th>
-                  <th>Статус</th>
-                </tr>
-              </thead>
-              <tbody id="debuggerTableBody">
-                <!-- Populated dynamically by JS -->
-              </tbody>
-            </table>
+          <div class="setting-item">
+            <div class="setting-label-row">
+              <span>Кулдаун между сигналами (сек)</span>
+              <span id="cfgCooldownVal">120s</span>
+            </div>
+            <input type="range" min="30" max="300" step="15" value="120" class="setting-range" id="cfgCooldown">
+          </div>
+          <div class="setting-item">
+            <div class="setting-label-row">
+              <span>Лимит индекса шума (Choppiness)</span>
+              <span>< 61.8</span>
+            </div>
+            <span class="setting-desc">Сделки в боковике строго блокируются Data Quality Gate.</span>
           </div>
         </div>
       </div>

@@ -1,19 +1,24 @@
+"""
+Master FastAPI Server & Webhook/WebSocket Gateway.
+Institutional Dark Trading Terminal & Authoritative Signal API (Phase 21, 22, 24).
+Routes all Web, API, and WebSocket requests directly through the Ultimate AI Trading Engine.
+Zero synthetic noise, zero fake performance claims.
+"""
 import asyncio
 import os
 import time
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from fastapi import FastAPI, UploadFile, File, Form, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 import config
-from engine.market_data import market_manager
-from engine.brain import analyst_brain
-from engine.vision_analyzer import vision_analyzer
-from engine.history import history_manager
+from AITradingEngine.engine import UltimateAITradingEngine
+from AITradingEngine.core.enums import MarketType, Timeframe, Direction, QualityGrade
+from AITradingEngine.core.models import FinalSignal, Signal
 
-app = FastAPI(title="Pocket Trading Signals & AI Vision Terminal", version="2.1.0")
+app = FastAPI(title="Pocket Option Quant Trading Terminal", version="3.0.0")
 
 # Enable CORS for Telegram Web App embed
 app.add_middleware(
@@ -24,44 +29,52 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Background tick & market sync task
-async def market_tick_loop():
-    from AITradingEngine.market_data.pocket_option_adapter import pocket_option_adapter
-    sync_counter = 0
+# Authoritative Engine Instance
+quant_engine = UltimateAITradingEngine(db_path=config.QUANT_DB_PATH)
+
+
+# Background engine supervisor & feed health monitor
+async def engine_monitor_loop():
     while True:
         try:
-            # Tick all pairs to update price and candles
-            for p in config.PAIRS["otc"] + config.PAIRS["regular"]:
-                tick_info = market_manager.tick_pair(p["id"])
-                if tick_info and "price" in tick_info:
-                    normalized = pocket_option_adapter.normalize_raw_tick(
-                        symbol=p["id"],
-                        price=tick_info["price"],
-                        source="POCKET_OPTION_LIVE_STREAM"
-                    )
-                    quant_engine.feed_manager.record_normalized_tick(normalized)
+            # Check active pending signals against live price for resolution
+            active_signals = quant_engine.repository.get_active_signals()
+            now = time.time()
+            for s in active_signals:
+                valid_until = s.get("valid_until", s.get("timestamp", 0) + s.get("expiration_seconds", 60))
+                if now >= valid_until:
+                    asset = s.get("asset")
+                    cur_p = quant_engine.feed_manager.get_current_price(asset)
+                    entry_p = s.get("entry_price", cur_p)
+                    direction = s.get("direction")
+                    payout = s.get("payout", 0.85)
 
-            history_manager.check_active_signals()
+                    if cur_p > 0 and entry_p > 0:
+                        if direction == "CALL":
+                            is_win = cur_p > entry_p
+                        else:
+                            is_win = cur_p < entry_p
 
-            sync_counter += 1
-            if sync_counter >= 35: # Sync with real market rates every ~30s
-                sync_counter = 0
-                await market_manager.sync_with_live_market()
-
+                        result_str = "WIN" if is_win else "LOSS"
+                        pnl = payout if is_win else -1.0
+                        quant_engine.repository.update_signal_outcome(
+                            signal_id=s["signal_id"],
+                            exit_price=cur_p,
+                            result=result_str,
+                            pnl=pnl
+                        )
         except Exception as e:
-            print(f"Error in tick loop: {e}")
-        await asyncio.sleep(0.85)
+            print(f"[ENGINE_LOOP_ERROR] {e}")
+        await asyncio.sleep(2.0)
+
 
 @app.on_event("startup")
 async def startup_event():
+    # Start live broker quote adapter
     from AITradingEngine.market_data.pocket_option_adapter import pocket_option_adapter
     await pocket_option_adapter.start()
-    # Initial live market sync
-    try:
-        await market_manager.sync_with_live_market()
-    except Exception:
-        pass
-    asyncio.create_task(market_tick_loop())
+    asyncio.create_task(engine_monitor_loop())
+
 
 # Static files
 static_dir = os.path.join(os.path.dirname(__file__), "static")
@@ -70,6 +83,7 @@ if not os.path.exists(static_dir):
 
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_index():
     index_path = os.path.join(static_dir, "index.html")
@@ -77,18 +91,45 @@ async def serve_index():
         return FileResponse(index_path)
     return HTMLResponse("<h1>Терминал загружается...</h1>")
 
+
 @app.get("/api/pairs")
 async def get_pairs():
-    return market_manager.get_all_pairs()
+    otc_list = []
+    regular_list = []
+
+    for p in config.PAIRS["otc"]:
+        p_copy = p.copy()
+        feed = quant_engine.feed_manager.feeds.get(p["id"])
+        p_copy["current_price"] = feed.current_price if feed else p.get("base_price", 1.0)
+        p_copy["health"] = feed.check_health() if feed else "OFFLINE"
+        otc_list.append(p_copy)
+
+    for p in config.PAIRS["regular"]:
+        p_copy = p.copy()
+        feed = quant_engine.feed_manager.feeds.get(p["id"])
+        p_copy["current_price"] = feed.current_price if feed else p.get("base_price", 1.0)
+        p_copy["health"] = feed.check_health() if feed else "OFFLINE"
+        regular_list.append(p_copy)
+
+    return {"otc": otc_list, "regular": regular_list}
+
 
 @app.get("/api/price/{pair_id}")
 async def get_single_price(pair_id: str):
-    pair_info = market_manager.get_pair_info(pair_id)
+    all_pairs = config.PAIRS["otc"] + config.PAIRS["regular"]
+    pair_info = next((p for p in all_pairs if p["id"] == pair_id), None)
     if not pair_info:
         return JSONResponse(status_code=404, content={"error": "Pair not found"})
-    cur_p = market_manager.get_current_price(pair_id)
+
+    feed = quant_engine.feed_manager.feeds.get(pair_id)
+    cur_p = feed.current_price if feed else pair_info.get("base_price", 1.0)
+    health = feed.check_health() if feed else "OFFLINE"
     now = int(time.time())
     sec_rem = 60 - (now % 60)
+
+    last_t = feed.last_tick_time if feed else 0.0
+    latency_ms = round((time.time() - last_t) * 1000.0, 1) if last_t > 0 else 9999.0
+
     return {
         "pair": pair_id,
         "name": pair_info["name"],
@@ -96,33 +137,43 @@ async def get_single_price(pair_id: str):
         "precision": pair_info["precision"],
         "payout": pair_info["payout"],
         "category": pair_info["category"],
+        "market_type": "OTC" if "OTC" in pair_id else "REAL",
+        "status": health,
+        "latency_ms": latency_ms,
         "seconds_remaining": sec_rem
     }
 
+
 @app.get("/api/candles/{pair_id}")
 async def get_candles(pair_id: str, timeframe: str = "1m", limit: int = 80):
-    candles = market_manager.get_candles(pair_id, timeframe=timeframe, limit=limit)
-    pair_info = market_manager.get_pair_info(pair_id)
-    cur_p = market_manager.get_current_price(pair_id)
+    all_pairs = config.PAIRS["otc"] + config.PAIRS["regular"]
+    pair_info = next((p for p in all_pairs if p["id"] == pair_id), None)
+
+    tf_map = {
+        "1m": Timeframe.M1,
+        "3m": Timeframe.M3,
+        "5m": Timeframe.M5,
+        "15m": Timeframe.M15
+    }
+    tf_enum = tf_map.get(timeframe.lower(), Timeframe.M1)
+
+    candles = quant_engine.feed_manager.get_closed_candles(pair_id, tf=tf_enum, limit=limit)
+    feed = quant_engine.feed_manager.feeds.get(pair_id)
+    cur_p = feed.current_price if feed else 0.0
+
     now = int(time.time())
     sec_rem = 60 - (now % 60)
+
     return {
         "pair": pair_id,
         "pair_info": pair_info,
         "timeframe": timeframe,
-        "candles": candles,
+        "candles": [c.to_dict() for c in candles],
         "current_price": cur_p,
-        "seconds_remaining": sec_rem
+        "seconds_remaining": sec_rem,
+        "status": feed.check_health() if feed else "OFFLINE"
     }
 
-@app.post("/api/market/calibrate")
-async def calibrate_market_price(pair_id: str = Form(...), price: float = Form(...)):
-    market_manager.calibrate_price(pair_id, price)
-    return {
-        "success": True,
-        "pair": pair_id,
-        "calibrated_price": market_manager.get_current_price(pair_id)
-    }
 
 @app.post("/api/signal/generate")
 async def generate_signal(pair_id: str = Form(...), timeframe: str = Form("1m"), expiration: int = Form(1)):
@@ -134,14 +185,9 @@ async def generate_signal(pair_id: str = Form(...), timeframe: str = Form("1m"),
     )
     if "error" in res:
         return JSONResponse(status_code=400, content=res)
-    
-    # Save to history if valid signal was generated
-    if res.get("status") == "SIGNAL_GENERATED":
-        record = history_manager.add_signal(res)
-        res["signal_id"] = record.signal_id
-        res["expires_at"] = record.expires_at
-        res["seconds_left"] = record.expiration_minutes * 60
+
     return res
+
 
 @app.post("/api/signal/analyze-image")
 async def analyze_image(
@@ -168,10 +214,12 @@ async def analyze_image(
 
     return result
 
+
 @app.get("/api/settings")
 async def get_settings():
     from AITradingEngine.core.signal_config import signal_config_manager
     return signal_config_manager.config.to_dict()
+
 
 @app.post("/api/settings")
 async def update_settings(data: dict):
@@ -179,143 +227,49 @@ async def update_settings(data: dict):
     updated = signal_config_manager.update(data, engine=quant_engine)
     return {"success": True, "settings": updated.to_dict()}
 
+
 @app.post("/api/settings/reset")
 async def reset_settings():
     from AITradingEngine.core.signal_config import signal_config_manager
     reset = signal_config_manager.reset_to_defaults(engine=quant_engine)
     return {"success": True, "settings": reset.to_dict()}
 
-@app.get("/api/debugger/price-comparison")
-async def get_price_comparison(pair_id: Optional[str] = None):
-    return quant_engine.get_price_comparison(pair_id)
 
-@app.get("/api/debugger/health")
-async def get_debugger_health():
-    from AITradingEngine.market_data.pocket_option_adapter import pocket_option_adapter
-    return pocket_option_adapter.get_health_report()
+@app.get("/api/live-status")
+async def get_live_status():
+    """Live broker telemetry and data quality status (Phase 22)."""
+    summary = quant_engine.feed_manager.get_status_summary()
+    pairs_telemetry = []
 
-@app.get("/api/scanner/overview")
-async def get_scanner_overview():
-    results = []
     for p in config.PAIRS["otc"] + config.PAIRS["regular"]:
         feed = quant_engine.feed_manager.feeds.get(p["id"])
-        price = feed.current_price if feed else p.get("base_price", 1.0)
-        health = feed.check_health() if feed else "OFFLINE"
-        results.append({
+        last_t = feed.last_tick_time if feed else 0.0
+        age = round(time.time() - last_t, 2) if last_t > 0 else 9999.0
+        candles_count = len(quant_engine.feed_manager.get_closed_candles(p["id"], Timeframe.M1, limit=100))
+        pairs_telemetry.append({
             "id": p["id"],
             "name": p["name"],
-            "category": p.get("category", "CURRENCY"),
-            "payout": p.get("payout", 85),
-            "price": price,
-            "precision": p.get("precision", 5),
-            "status": health,
             "market_type": "OTC" if "OTC" in p["id"] else "REAL",
-            "cold_start_samples": feed.sample_count if feed else 0
+            "price": feed.current_price if feed else 0.0,
+            "status": feed.check_health() if feed else "OFFLINE",
+            "age_seconds": age,
+            "closed_candles": candles_count,
+            "provider": "POCKET_OPTION_OTC" if "OTC" in p["id"] else "INTERBANK_REAL"
         })
-    return results
+
+    return {
+        "summary": summary,
+        "pairs": pairs_telemetry
+    }
+
 
 @app.get("/api/history")
 async def get_history():
-    return history_manager.get_stats()
+    recent = quant_engine.repository.get_recent_signals(limit=25)
+    return {"signals": recent}
 
-@app.get("/api/indicators/{pair_id}")
-async def get_indicators(pair_id: str, timeframe: str = "1m"):
-    analysis = analyst_brain.analyze_pair(pair_id, timeframe=timeframe)
-    if "error" in analysis:
-        return JSONResponse(status_code=400, content=analysis)
-    return {
-        "pair": pair_id,
-        "indicators": analysis["indicators"],
-        "metrics": analysis["metrics"]
-    }
 
-# Live WebSocket for real-time ticks
-@app.websocket("/ws/live")
-async def websocket_live_feed(websocket: WebSocket):
-    await websocket.accept()
-    active_pair = "AUD_CHF_OTC"
-    try:
-        while True:
-            # Check for client messages (e.g. changing pair)
-            try:
-                msg = await asyncio.wait_for(websocket.receive_json(), timeout=0.85)
-                if "pair" in msg and msg["pair"]:
-                    active_pair = msg["pair"]
-            except asyncio.TimeoutError:
-                pass
-
-            cur_p = market_manager.get_current_price(active_pair)
-            pair_info = market_manager.get_pair_info(active_pair)
-            candles = market_manager.get_candles(active_pair, timeframe="1m", limit=3)
-            latest_candle = candles[-1] if candles else None
-            now = int(time.time())
-            sec_rem = 60 - (now % 60)
-
-            await websocket.send_json({
-                "pair": active_pair,
-                "price": cur_p,
-                "precision": pair_info["precision"] if pair_info else 5,
-                "latest_candle": latest_candle,
-                "seconds_remaining": sec_rem,
-                "timestamp": now
-            })
-    except WebSocketDisconnect:
-        pass
-    except Exception as e:
-        print(f"WebSocket error: {e}")
-
-# Quant Engine API Endpoints
-from bot import quant_engine
-from AITradingEngine.core.enums import Direction
-
-@app.get("/api/quant/status")
-async def get_quant_status():
-    return quant_engine.get_status_overview()
-
-@app.post("/api/quant/scan")
-async def run_quant_scan():
-    await quant_engine.scanner.scan_once()
-    best = quant_engine.scanner.opportunity_queue.get_top_candidate()
-    if not best:
-        return {
-            "status": "NO_TRADE",
-            "message": "All markets currently fail 12-Gate Filter criteria. Preserving capital."
-        }
-    snapshot, score = best
-    signal = await quant_engine.process_candidate_setup(snapshot, score)
-    if signal and signal.gate_result.is_passed and signal.direction != Direction.NO_SIGNAL:
-        return {
-            "status": "SIGNAL_GENERATED",
-            "signal": {
-                "id": signal.signal_id,
-                "symbol": signal.symbol,
-                "market_type": signal.market_type.value,
-                "direction": signal.direction.value,
-                "expiration": signal.expiration_label,
-                "confidence": signal.confidence,
-                "grade": signal.grade.value,
-                "setup": signal.setup_name,
-                "confluence": signal.confluence_tags,
-                "entry_price": signal.entry_price
-            }
-        }
-    return {
-        "status": "NO_TRADE",
-        "reason": signal.rejection_reason if signal else "Failed adversarial critique or edge threshold"
-    }
-
-@app.get("/api/quant/rejections")
-async def get_quant_rejections(limit: int = 20):
-    return quant_engine.repository.get_recent_rejections(limit=limit)
-
-@app.get("/api/quant/perf")
-async def get_quant_perf():
-    return {
-        "otc": quant_engine.otc_store.get_metrics(),
-        "real": quant_engine.real_store.get_metrics()
-    }
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host=config.HOST, port=config.PORT)
-
+@app.get("/api/performance")
+async def get_performance():
+    stats = quant_engine.repository.get_comprehensive_statistics()
+    return stats

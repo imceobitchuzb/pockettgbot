@@ -1,6 +1,6 @@
 """
-AITradingEngine Core Enums
-Defines all domain constants, states, market types, timeframes, and rejection reasons.
+AITradingEngine Core Enums.
+Defines all domain constants, states, market types, timeframes, lifecycle states, and rejection reasons.
 """
 from enum import Enum
 
@@ -22,6 +22,7 @@ class Timeframe(str, Enum):
     S15 = "15s"
     S30 = "30s"
     M1 = "1m"
+    M3 = "3m"
     M5 = "5m"
     M15 = "15m"
 
@@ -30,6 +31,7 @@ class Timeframe(str, Enum):
     TF_15S = "15s"
     TF_30S = "30s"
     TF_1M = "1m"
+    TF_3M = "3m"
     TF_5M = "5m"
     TF_15M = "15m"
 
@@ -38,6 +40,25 @@ class QualityGrade(str, Enum):
     GRADE_A = "GRADE_A"       # High confluence, large historical sample, high expectancy
     GRADE_B = "GRADE_B"       # Standard confluence, acceptable edge
     NO_TRADE = "NO_TRADE"     # Inconclusive, noisy, conflicting, or low edge
+
+
+class SignalStrength(str, Enum):
+    WEAK = "WEAK"
+    MODERATE = "MODERATE"
+    STRONG = "STRONG"
+    VERY_STRONG = "VERY_STRONG"
+
+
+class SignalLifecycleState(str, Enum):
+    CREATED = "CREATED"
+    VALIDATED = "VALIDATED"
+    SENT = "SENT"
+    ACTIVE = "ACTIVE"
+    EXPIRED = "EXPIRED"
+    WIN = "WIN"
+    LOSS = "LOSS"
+    CANCELLED = "CANCELLED"
+    INVALIDATED = "INVALIDATED"
 
 
 class MarketRegime(str, Enum):
